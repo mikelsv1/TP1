@@ -65,9 +65,6 @@ void examples_smht48() {
     test_smht48(k2, blen2, m2, "5F265B72B5EC");
 }
 
-
-
-
 int main() {
     keyrec();
     return 0;
