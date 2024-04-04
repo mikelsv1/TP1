@@ -37,14 +37,47 @@ void test_smht48(const uint8_t k[static 6], uint64_t blen, const uint8_t m[blen]
     printf("-------------------------\n");
 }
 
-void keyrec(uint64_t blen, const uint8_t m[blen], char* tag){
-    
+void keyrec(const uint8_t m[static 6], char* tag) {
+    uint8_t k[6]; // To store the key
+    uint8_t h[6]; // To store the computed tag
+
+    // Define variables for the brute-force search
+    uint64_t attempts = 0;
+    uint64_t max_attempts = 1ULL << 48; // Total number of possible keys
+
+    // Iterate through all possible keys
+    for (uint64_t i = 0; i < max_attempts; ++i) {
+        // Convert the 48-bit key index to a 6-byte key
+        for (int j = 0; j < 6; ++j) {
+            k[j] = (i >> (j * 8)) & 0xFF;
+        }
+
+        // Compute the tag using the current key
+        smht48(k, 6, m, h);
+
+        // Check if the computed tag matches the target tag
+        if (memcmp(h, tag, 6) == 0) {
+            // Key found, print it and exit
+            printf("Key found after %llu attempts:\n", attempts);
+            for (int j = 0; j < 6; ++j) {
+                printf("%02X ", k[j]);
+            }
+            printf("\n");
+            return;
+        }
+
+        // Increment attempts
+        ++attempts;
+    }
+
+    // If no key is found
+    printf("Key not found after exhausting all possibilities.\n");
 }
 
 
 void examples_keyrec(){
     uint8_t m = {9, 8, 7, 6, 5, 4}
-    keyrec(m, 6, "7D1DEFA0B8AD");
+    keyrec(m, "7D1DEFA0B8AD");
 }
 
 void examples_smht48() {
