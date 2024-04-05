@@ -29,12 +29,10 @@ void test_smht48(const uint8_t k[static 6], uint64_t blen, const uint8_t m[blen]
 
 uint8_t *generateCombinations(unsigned long long int current, int bits_set, int position, int *count, const uint8_t m[static 6], const uint8_t target_tag[static 6], uint8_t *found_key)
 {
-    // Base case: if we've set 7 bits, check if the calculated tag matches the target tag
     if (bits_set == 7)
     {
         (*count)++;
 
-        // Calculate the hash using the candidate key
         uint8_t calculated_tag[6];
         uint8_t key[6];
         for (int i = 0; i < 6; i++)
@@ -43,7 +41,6 @@ uint8_t *generateCombinations(unsigned long long int current, int bits_set, int 
         }
         smht48(key, 6, m, calculated_tag);
 
-        // Check if the calculated tag matches the target tag
         if (memcmp(calculated_tag, target_tag, 6) == 0)
         {
             printf("Found key with weight 7: ");
@@ -52,8 +49,7 @@ uint8_t *generateCombinations(unsigned long long int current, int bits_set, int 
                 printf("%02X", key[i]);
             }
             printf("\n");
-            
-            // Copy the key to the pre-allocated buffer
+
             memcpy(found_key, key, 6);
             return found_key;
         }
@@ -61,13 +57,12 @@ uint8_t *generateCombinations(unsigned long long int current, int bits_set, int 
         if (*count % 100000 == 0)
         {
             printf("Keys checked: %d\r", *count);
-            fflush(stdout); // Flush buffer to ensure immediate output
+            fflush(stdout);
         }
 
         return NULL;
     }
 
-    // Recursively generate combinations
     for (int i = position; i < 48; i++)
     {
         if (generateCombinations(current | (1ULL << i), bits_set + 1, i + 1, count, m, target_tag, found_key) != NULL)
@@ -78,7 +73,6 @@ uint8_t *generateCombinations(unsigned long long int current, int bits_set, int 
 
     return NULL;
 }
-
 
 uint8_t *keyrec(uint64_t blen, const uint8_t m[blen], char *tag)
 {
@@ -116,15 +110,125 @@ void examples_smht48()
     test_smht48(k2, blen2, m2, "5F265B72B5EC");
 }
 
+void colsearch(uint8_t *m)
+{
+    uint8_t *hash_table[16777216][65536];
+
+    for (int i = 0; i < 16777216; i++)
+    {
+        for (int j = 0; j < 65536; j++)
+        {
+            hash_table[i][j] = NULL;
+        }
+    }
+
+    for (int i = 0; i < 65536; i++)//compute all possible messagse
+    {
+        memcpy(m, &i, 2);
+
+        uint8_t h1[6];
+        tcz48_dm(m, h1);
+
+        uint32_t bucket_index = 0;
+        for (int k = 0; k < 6; k++)
+        {
+            bucket_index += h1[k]; 
+        }
+        bucket_index %= 65536; 
+
+        int index = 0;
+        while (hash_table[bucket_index][index] != NULL)
+        {
+            index++;
+        }
+        hash_table[bucket_index][index] = m;
+
+        for (int j = 0; hash_table[bucket_index][j] != NULL; j++)
+        {
+            uint8_t *stored_m = hash_table[bucket_index][j];
+            // Check for collision
+            if (memcmp(m, stored_m, 16) == 0)
+            {
+                printf("Collision found:\n");
+                printf("m1: ");
+                printhash(stored_m);
+                printf("\nm2: ");
+                printhash(m);
+                printf("\n");
+                return;
+            }
+        }
+    }
+
+    printf("No collision found.\n");
+}
+
+void smht48ef()
+{
+    uint8_t key[16];
+    for (int i = 0; i < 16; i++)
+    {
+        key[i] = rand() % 256;
+    }
+
+    uint8_t m[16];
+    colsearch(m);
+
+    uint8_t tag[6];
+    smht48(key, 16, m, tag);
+
+    printf("Forgery:\n");
+    printf("m: ");
+    printhash(m);
+    printf("\nTag: ");
+    printhash(tag);
+    printf("\n");
+}
+
 int main()
 {
+    char choice;
     clock_t t;
-    t = clock();
 
-    examples_keyrec();
+    do
+    {
+        t = clock();
+        printf("Choose an option:\n");
+        printf("1. Verify implementation of smht48 on the test vectors (Q1 & Q2)\n");
+        printf("2. Implement a function keyrec to search for k (Q3)\n");
+        printf("3. Implement functions colsearch and smht48ef (Q6)\n");
+        printf("4. Exit\n");
+        printf("Enter your choice: ");
+        if (scanf(" %c", &choice) != 1)
+        {
+            printf("Failed to read integer.\n");
+        }
 
-    t = clock() - t;
-    double time_taken = ((double)t) / CLOCKS_PER_SEC; // in seconds
-    printf("\nIt took %f seconds to execute .\n", time_taken);
-    exit(1);
+        if (choice == '1')
+        {
+            examples_smht48();
+        }
+        else if (choice == '2')
+        {
+            examples_keyrec();
+        }
+        else if (choice == '3')
+        {
+            smht48ef();
+        }
+        else if (choice == '4')
+        {
+            printf("Exiting...\n");
+        }
+        else
+        {
+            printf("Invalid choice! Please choose again.\n");
+        }
+        t = clock() - t;
+        double time_taken = ((double)t) / CLOCKS_PER_SEC;
+        printf("\nIt took %f seconds to execute .\n\n", time_taken);
+
+    } while (choice != '4');
+
+    return 0;
 }
